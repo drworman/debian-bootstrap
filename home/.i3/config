@@ -1,0 +1,326 @@
+# i3 config file (v4)
+#
+# Please see http://i3wm.org/docs/userguide.html for a complete reference!
+
+# --- Modifier Key ---
+set $mod Mod4
+
+# --- Color Variables ---
+set $colorcc #32FF32
+set $colorbg #000000
+set $colorfg #32FF32
+set $color00 #001100
+set $color01 #228822
+set $color02 #32FF32
+set $color03 #88CC88
+set $color04 #99FF99
+set $color05 #AAFFAA
+set $color06 #CCFFCC
+set $color07 #77CC77
+set $color08 #113311
+set $color09 #33BB33
+set $color10 #55DD55
+set $color11 #77EE77
+set $color12 #99FF99
+set $color13 #AAFFAA
+set $color14 #CCFFCC
+set $color15 #FFFFFF
+
+# --- Color Assignments (Client Definitions) ---
+# class           border    backgr.   text      indicator
+client.focused          $color13  $colorbg  $colorfg  $color13
+client.focused_inactive $color03  $colorbg  $colorfg  $color03
+client.unfocused        $colorcc  $colorbg  $colorfg  $colorcc
+client.urgent           $color09  $colorbg  $colorfg  $color09
+client.placeholder      $colorcc  $colorbg  $colorfg  $color08
+
+# --- Window Options (UI Definition) ---
+new_window pixel 0
+smart_borders on
+gaps inner 0
+gaps outer 0
+gaps top 0
+gaps bottom 0
+gaps left 0
+gaps right 0
+focus_follows_mouse no
+
+# Font for window titles. Will also be used by the bar unless a different font
+# is used in the bar {} block below.
+# This font is widely installed, provides lots of unicode glyphs, right-to-left
+# text rendering and scalability on retina/hidpi displays (thanks to pango).
+#font pango:DejaVu Sans Mono 10
+font xft:FontAwesome, FiraCode Nerd Font Mono Med 12
+
+# Use Mouse+$mod to drag floating windows to their wanted position
+floating_modifier $mod
+
+# --- Workspaces ---
+set $w0 "0:Terminal"
+set $w1 "1:Code"
+set $w2 "2:WWW"
+set $w3 "3:Video"
+set $w4 "4:Email"
+set $w5 "5:Office"
+set $w6 "6:Design"
+set $w7 "7:Monitors"
+set $w8 "8:Games"
+set $w9 "9:Chat"
+
+# --- Workspace Assignments ---
+
+# Workspace 0: Terminal
+assign [class="(?i)^URxvt$"] $w0
+
+# Workspace 1: Code
+assign [class="(?i)^(android studio|atom|geany|jedit|jetbrains(-fleet|-toolbox)?|qownnotes|sublime_text|zed)$"] $w1
+
+# Workspace 2: WWW
+assign [class="(?i)^(chromium|firefox|google-chrome)$"] $w2
+
+# Workspace 3: Video
+assign [class="(?i)^(mplayer|vlc)$"] $w3
+
+# Workspace 4: Email
+assign [class="(?i)^(icedove|thunderbird)$"] $w4
+
+# Workspace 5: Office
+assign [class="(?i)^libreoffice$"] $w5
+
+# Workspace 6: Design
+assign [class="(?i)^(dia|gimp|inkscape)$"] $w6
+
+# Workspace 7: Monitors
+assign [class="(?i)^(bitcoin|exodus|virtualbox)$"] $w7
+assign [class="(?i).*edmarketconnector.Edmarketconnector*"] $w7
+assign [title="(?i).*E:D Market Connector.*"] $w7
+assign [title="(?i).*Elite Dangerous Monitor Daemon*"] $w7
+
+# Workspace 8: Games
+assign [class="(?i).*minecraft-launcher.*"] $w8
+assign [class="^Steam$" instance="(?i)^Steam$"] $w8
+assign [class="^Wine$" instance="^Steam$"] $w8
+assign [title="(?i).*Minecraft.Launcher.*"] $w8
+
+# Workspace 9: Chat
+assign [class="(?i)^(discord|signal|skypeforlinux|slack)$"] $w9
+assign [class="(?i)^urxvt$" instance="(?i)^irssi$"] $w9
+
+# --- Screenlock ---
+
+for_window [instance="matrixlock"] fullscreen enable, focus, border none
+
+# --- All Keybinds (bindsym) ---
+
+# Note: All keybinds have been uncommented and sorted alphabetically
+# by their base key. Conflicts should be resolved manually after this merge.
+
+# Key: 0-9
+bindsym $mod+0 workspace $w0
+bindsym $mod+1 workspace $w1
+bindsym $mod+2 workspace $w2
+bindsym $mod+3 workspace $w3
+bindsym $mod+4 workspace $w4
+bindsym $mod+5 workspace $w5
+bindsym $mod+6 workspace $w6
+bindsym $mod+7 workspace $w7
+bindsym $mod+8 workspace $w8
+bindsym $mod+9 workspace $w9
+bindsym $mod+Shift+0 move container to workspace $w0
+bindsym $mod+Shift+1 move container to workspace $w1
+bindsym $mod+Shift+2 move container to workspace $w2
+bindsym $mod+Shift+3 move container to workspace $w3
+bindsym $mod+Shift+4 move container to workspace $w4
+bindsym $mod+Shift+5 move container to workspace $w5
+bindsym $mod+Shift+6 move container to workspace $w6
+bindsym $mod+Shift+7 move container to workspace $w7
+bindsym $mod+Shift+8 move container to workspace $w8
+bindsym $mod+Shift+9 move container to workspace $w9
+
+# Key: a
+#bindsym $mod+a focus parent
+bindsym $mod+Control+a focus left
+bindsym $mod+Shift+a move left
+
+# Key: c
+bindsym $mod+Shift+c reload
+
+# Key: d
+bindsym $mod+d exec --no-startup-id dmenu_run
+#bindsym $mod+d focus child
+bindsym $mod+Control+d focus right
+bindsym $mod+Shift+d move right
+
+# Key: e
+bindsym $mod+e layout toggle split
+bindsym $mod+Shift+e exec i3-msg exit
+
+# Key: f
+#bindsym $mod+f fullscreen
+bindsym $mod+f fullscreen toggle
+
+# Key: g
+bindsym $mod+g exec --no-startup-id jgmenu_run
+
+# Key: h
+bindsym $mod+h split h
+
+# Key: l
+bindsym $mod+l exec --no-startup-id screenlock
+bindsym $mod+Shift+l exec --no-startup-id screenlock
+
+# Key: p
+bindsym $mod+p exec --no-startup-id disp_off
+
+# Key: q
+bindsym $mod+Shift+q kill
+
+# Key: r
+bindsym $mod+r mode resize
+bindsym $mod+Shift+r restart
+
+# Key: Return
+bindsym $mod+Return exec --no-startup-id urxvtc
+# Star Wars themed terminal (Aurebesh)
+bindsym $mod+Shift+Return exec --no-startup-id urxvt -fn "xft:Aurebesh_english:size=10:antialias=true:bold"
+
+# Key: s
+bindsym $mod+s layout stacking
+bindsym $mod+Control+s focus down
+bindsym $mod+Shift+s move down
+
+# Key: space
+bindsym $mod+space focus mode_toggle
+bindsym $mod+Shift+space floating toggle
+
+# Key: v
+bindsym $mod+v split v
+
+# Key: w
+bindsym $mod+w layout tabbed
+bindsym $mod+Control+w focus up
+bindsym $mod+Shift+w move up
+
+# Key: Arrow Keys (Left, Down, Up, Right)
+bindsym $mod+Control+Down focus down
+bindsym $mod+Control+Left focus left
+bindsym $mod+Control+Right focus right
+bindsym $mod+Control+Up focus up
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Right move right
+bindsym $mod+Shift+Up move up
+
+# Key: Function Keys (F1-F12)
+bindsym $mod+F1 exec --no-startup-id amixer sset Master,0 toggle
+bindsym $mod+F2 exec --no-startup-id amixer -q sset Master 5%-
+bindsym $mod+F3 exec --no-startup-id amixer -q sset Master 5%+
+bindsym $mod+F4 exec --no-startup-id amixer sset Capture,0 toggle
+bindsym Control+F12 exec --no-startup-id "screenlock && systemctl suspend"
+#bindsym Control+F12 exec --no-startup-id screenlock, mode default; exec --no-startup-id /bin/systemctl suspend, mode "default"
+bindsym Shift+F12 exec --no-startup-id screenlock
+
+# Key: Print (and modifiers)
+#bindsym Print exec --no-startup-id scrot
+#bindsym Mod1+Print exec --no-startup-id scrot -u
+#bindsym Shift+Print exec --no-startup-id scrot -s
+bindcode 107 exec --no-startup-id scrot
+bindcode Mod1+107 exec --no-startup-id scrot -u
+bindcode Shift+107 exec --no-startup-id scrot -s
+
+# Key: XF86 (Multimedia/Special Keys)
+#bindsym XF86AudioLowerVolume exec --no-startup-id "amixer -q sset Master 5%-"
+#bindsym XF86AudioLowerVolume exec --no-startup-id amixer sset Master,0 5%-
+#bindsym XF86AudioMicMute exec --no-startup-id "amixer sset Capture,0 toggle"
+#bindsym XF86AudioMicMute exec --no-startup-id amixer sset Capture,0 toggle
+#bindsym XF86AudioMute exec --no-startup-id "amixer sset Master,0 toggle"
+#bindsym XF86AudioMute exec --no-startup-id amixer sset Master,0 toggle
+#bindsym XF86AudioRaiseVolume exec --no-startup-id "amixer -q sset Master 5%+"
+#bindsym XF86AudioRaiseVolume exec --no-startup-id amixer sset Master,0 5%+
+
+bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5%
+#bindsym XF86AudioMicMute exec --no-startup-id amixer sset Capture,0 toggle
+bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
+bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5%
+
+bindsym XF86Favorites exec --no-startup-id screenlock
+#bindsym XF86Favorites exec --no-startup-id "screenlock"
+bindsym XF86Tools exec --no-startup-id jgmenu_run
+#bindsym XF86Tools exec --no-startup-id "jgmenu_run"
+bindsym $mod+Shift+XF86Display exec --no-startup-id disp_off
+
+# Key: KP_ (Numpad)
+bindsym $mod+KP_0 workspace $w0
+bindsym $mod+KP_1 workspace $w1
+bindsym $mod+KP_2 workspace $w2
+bindsym $mod+KP_3 workspace $w3
+bindsym $mod+KP_4 workspace $w4
+bindsym $mod+KP_5 workspace $w5
+bindsym $mod+KP_6 workspace $w6
+bindsym $mod+KP_7 workspace $w7
+bindsym $mod+KP_8 workspace $w8
+bindsym $mod+KP_9 workspace $w9
+bindsym $mod+Shift+KP_0 move container to workspace $w0
+bindsym $mod+Shift+KP_1 move container to workspace $w1
+bindsym $mod+Shift+KP_2 move container to workspace $w2
+bindsym $mod+Shift+KP_3 move container to workspace $w3
+bindsym $mod+Shift+KP_4 move container to workspace $w4
+bindsym $mod+Shift+KP_5 move container to workspace $w5
+bindsym $mod+Shift+KP_6 move container to workspace $w6
+bindsym $mod+Shift+KP_7 move container to workspace $w7
+bindsym $mod+Shift+KP_8 move container to workspace $w8
+bindsym $mod+Shift+KP_9 move container to workspace $w9
+
+mode "resize" {
+        # These bindings trigger as soon as you enter the resize mode
+
+        # Pressing left will shrink the window’s width.
+        # Pressing right will grow the window’s width.
+        # Pressing up will shrink the window’s height.
+        # Pressing down will grow the window’s height.
+        bindsym j resize shrink width 10 px or 10 ppt
+        bindsym k resize grow height 10 px or 10 ppt
+        bindsym l resize shrink height 10 px or 10 ppt
+        bindsym semicolon resize grow width 10 px or 10 ppt
+
+        # same bindings, but for the arrow keys
+        bindsym Left resize shrink width 10 px or 10 ppt
+        bindsym Down resize grow height 10 px or 10 ppt
+        bindsym Up resize shrink height 10 px or 10 ppt
+        bindsym Right resize grow width 10 px or 10 ppt
+
+        # back to normal: Enter or Escape
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+}
+
+# Start i3bar to display a workspace bar (plus the system information i3status
+# finds out, if available)
+#bar {
+#       status_command i3status
+#}
+bar {
+        bindsym button3 exec --no-startup-id jgmenu --at-pointer
+        font xft:FontAwesome, FiraCode Nerd Font Mono Med 12
+        workspace_buttons yes
+        strip_workspace_numbers yes
+        # separator_symbol
+        # status_command $HOME/.i3/i3bar.sh
+        status_command i3blocks -c $HOME/.i3/i3blocks.conf
+        position top
+        colors  {
+        background $colorbg
+        statusline $colorfg
+        separator  $colorfg
+
+        focused_workspace  $colorbg $colorbg $color13
+        active_workspace   $colorbg $colorbg $color13
+        inactive_workspace $colorbg $colorbg $colorcc
+        urgent_workspace   $colorbg $colorbg $color09
+        }
+        tray_output primary
+}
+
+# exec --no-startup-id i3-msg "workspace $w1; append_layout $HOME/.i3/w1.json"
+# exec --no-startup-id i3-msg "workspace $w0; append_layout $HOME/.i3/w0.json"
+exec --no-startup-id i3-msg 'exec $HOME/.i3/i3session.sh'

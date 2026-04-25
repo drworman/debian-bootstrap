@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# mail.work — print the unread-message count for a work mailbox
+#
+# Usage:
+#   mail.work
+#
+# Identical to mail.pers but kept as a separate file so the two mailboxes
+# can be configured independently. Connects to the configured IMAP server
+# over SSL and prints the integer count of UNSEEN messages in INBOX.
+#
+# Note: with Gmail you must use an App Password, not your normal password.
+#       Enable 2FA → https://myaccount.google.com/apppasswords
+#
+# Dependencies: python3 (imaplib is part of the standard library)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+USERNAME = "user@domain.com"   # e.g. example.username@gmail.com
+PASSWORD = "password"          # use an app password, never your real one
+SERVER   = "imap.gmail.com"
+PORT     = 993
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+import imaplib
+
+
+def get_unread_count():
+    try:
+        # Connect via SSL
+        mail = imaplib.IMAP4_SSL(SERVER, PORT)
+
+        # Login
+        mail.login(USERNAME, PASSWORD)
+
+        # Select INBOX
+        mail.select("INBOX")
+
+        # Search for unseen messages
+        status, response = mail.search(None, 'UNSEEN')
+
+        if status != "OK":
+            return 0
+
+        unread_msg_nums = response[0].split()
+        return len(unread_msg_nums)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 0
+
+    finally:
+        try:
+            mail.logout()
+        except:
+            pass
+
+
+if __name__ == "__main__":
+    count = get_unread_count()
+    print(count)

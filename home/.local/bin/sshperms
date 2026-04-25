@@ -1,0 +1,38 @@
+#!/bin/bash
+# sshperms — apply SSH-correct permissions (600 / 700) recursively
+#
+# Usage:
+#   cd ~/.ssh
+#   sshperms
+#
+# Run from inside the directory you want to fix. All regular files become
+# 0600, all directories become 0700. This matches what OpenSSH expects in
+# ~/.ssh/ and is needed any time you copy keys from another machine,
+# unpack a backup, or clone a repo of dotfiles.
+#
+# Dependencies: findutils, coreutils (chmod), sudo
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — operates on $PWD.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+#applyPerms() {
+#    find -L ./ -type f -print0 | xargs -0 -n 1 --no-run-if-empty chmod 600
+#    find -L ./ -type d -print0 | xargs -0 -n 1 --no-run-if-empty chmod 700
+#}
+
+#if [[ -d ./ ]]; then
+#
+#    ls ./ | while read x; do
+#        if [[ -d $x ]]; then
+#            case $x in
+#                *.*)
+#                    applyPerms $x
+#                    ;;
+#            esac
+#        fi
+#        done
+#fi
+
+sudo find ./ -type f -exec chmod 600 {} \;
+sudo find ./ -type d -exec chmod 700 {} \;

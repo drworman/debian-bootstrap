@@ -1,0 +1,173 @@
+#!/bin/bash
+# sysupd — full system upgrade across distros, then clean $HOME
+#
+# Usage:
+#   sysupd
+#
+# Detects the running distro (Debian, Arch, or Gentoo) and runs the
+# appropriate full upgrade chain. Each upgrade step runs silently first;
+# if the silent pass reports a problem the same step is rerun
+# interactively so the user can resolve it. Afterwards, common
+# scratch/cache locations under $HOME are cleared.
+#
+# Output is mirrored to a log file, summarised at the end.
+#
+# Dependencies: sudo, coreutils (date, tee, grep)
+#   Debian: apt
+#   Arch:   pacman, optionally yay
+#   Gentoo: portage (emerge), eix, dispatch-conf, revdep-rebuild,
+#           eclean (gentoolkit)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Where the run log is written. Truncated each invocation.
+LOG_FILE="/tmp/sysupd.log"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+# Clear the log file at the start of the script
+> "$LOG_FILE"
+
+# Function to log messages (both to console and log file)
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+# Function to detect the Linux distribution
+detect_distro() {
+    local os_release_id=$(grep -oP '^ID=\K[^[:space:]]+' /etc/os-release 2>/dev/null)
+
+    case "$os_release_id" in
+        "debian")
+            echo "Debian"
+            ;;
+        "arch")
+            echo "Arch Linux"
+            ;;
+        "gentoo")
+            echo "Gentoo"
+            ;;
+        *)
+            echo "Unsupported"
+            ;;
+    esac
+}
+
+DISTRO=$(detect_distro)
+FAILURES=()
+
+log_message "Detected Distribution: $DISTRO"
+log_message "Starting system upgrade process..."
+
+# --- Package Management and System Upgrade ---
+
+case "$DISTRO" in
+    "Debian")
+        log_message "Performing Debian upgrade..."
+
+        log_message "  First pass (silent): Official Debian repositories"
+        sudo apt-get clean >/dev/null 2>>"$LOG_FILE"
+        sudo apt-get autoremove --purge >/dev/null 2>>"$LOG_FILE"
+        sudo apt-get update >/dev/null 2>>"$LOG_FILE"
+        if ! sudo apt-get -f --show-progress -u --fix-missing dist-upgrade -y >/dev/null 2>>"$LOG_FILE"; then
+            log_message "    Official package upgrade reported issues. Check $LOG_FILE"
+            FAILURES+=("Debian official package upgrade")
+        fi
+
+        if [ ${#FAILURES[@]} -gt 0 ]; then
+            log_message "  Second pass (interactive): Addressing reported issues for official Debian repositories."
+            sudo apt-get -f --show-progress -u --fix-missing dist-upgrade
+        fi
+        ;;
+
+    "Arch Linux")
+        log_message "Performing Arch Linux upgrade..."
+
+        log_message "  First pass (silent): Official Arch Linux repositories"
+        if ! sudo pacman -Syu --noconfirm >/dev/null 2>>"$LOG_FILE"; then
+            log_message "    Official package upgrade reported issues. Check $LOG_FILE"
+            FAILURES+=("Arch official package upgrade")
+        fi
+        sudo pacman -Scc --noconfirm >/dev/null 2>>"$LOG_FILE" # Clean package cache silently
+
+        if [ ${#FAILURES[@]} -gt 0 ]; then
+            log_message "  Second pass (interactive): Addressing reported issues for official Arch repositories."
+            sudo pacman -Syu
+        fi
+
+        log_message "  First pass (silent): AUR packages with yay"
+        if command -v yay &> /dev/null; then
+            if ! yay -Syu --aur --noconfirm >/dev/null 2>>"$LOG_FILE"; then
+                log_message "    AUR package upgrade reported issues. Check $LOG_FILE"
+                FAILURES+=("AUR package upgrade (yay)")
+            fi
+            yay -Scc --noconfirm >/dev/null 2>>"$LOG_FILE" # Clean yay cache silently
+        else
+            log_message "    'yay' not found. Please install it to update AUR packages."
+            FAILURES+=("'yay' not found")
+        fi
+
+        if [ ${#FAILURES[@]} -gt 0 ]; then
+            log_message "  Second pass (interactive): Addressing reported issues for AUR packages."
+            if command -v yay &> /dev/null; then
+                yay -Syu --aur
+            fi
+        fi
+        ;;
+
+    "Gentoo")
+        log_message "Performing Gentoo upgrade..."
+
+        log_message "  Updating Gentoo repository sync and Eix cache silently..."
+        sudo emerge-webrsync -q >/dev/null 2>>"$LOG_FILE"
+        sudo eix-sync -q >/dev/null 2>>"$LOG_FILE"
+
+        log_message "  First pass (silent): Official Gentoo packages"
+        if ! sudo emerge -DNUuv --autounmask-write --backtrack=500 --keep-going=y --quiet-build=y --deep --with-bdeps=y --complete-graph=y @preserved-rebuild @system @world >/dev/null 2>>"$LOG_FILE"; then
+            log_message "    Official package upgrade reported issues. Check $LOG_FILE"
+            FAILURES+=("Gentoo official package upgrade")
+        fi
+
+        if [ ${#FAILURES[@]} -gt 0 ]; then
+            log_message "  Second pass (interactive): Addressing reported issues for official Gentoo packages."
+            sudo emerge -DNUuv --autounmask-write --backtrack=500 --keep-going=y --deep --with-bdeps=y --complete-graph=y @preserved-rebuild @system @world
+        fi
+
+        log_message "  Performing post-upgrade steps silently..."
+        sudo dispatch-conf >/dev/null 2>>"$LOG_FILE" # Handle configuration file updates
+        sudo revdep-rebuild -q >/dev/null 2>>"$LOG_FILE" # Rebuild broken reverse dependencies
+        sudo emerge -uvD --autounmask-write --backtrack=500 --keep-going=y --quiet-build=y --deep --with-bdeps=y --complete-graph=y @module-rebuild >/dev/null 2>>"$LOG_FILE" # Rebuild kernel modules
+        sudo eclean-dist -dq >/dev/null 2>>"$LOG_FILE" # Clean source distribution files
+        sudo env-update >/dev/null 2>>"$LOG_FILE" && source /etc/profile >/dev/null 2>>"$LOG_FILE" # Update environment
+        ;;
+
+    "Unsupported")
+        log_message "Error: Your Linux distribution is not supported by this script."
+        log_message "Please update the script to include commands for your distribution, or run upgrades manually."
+        exit 1
+        ;;
+esac
+
+# --- Clean $HOME ---
+log_message ""
+log_message "Cleaning user's home directory..."
+rm -rf ~/.cache/* 2>/dev/null
+rm -rf ~/.local/share/Trash/* 2>/dev/null
+rm -rf ~/.recently* 2>/dev/null
+rm -rf ~/.thumbnails/* 2>/dev/null
+rm -rf ~/Downloads/pop*.mp3 2>/dev/null
+log_message "Home directory cleaning complete."
+
+# --- Summary of Failures ---
+if [ ${#FAILURES[@]} -gt 0 ]; then
+    log_message ""
+    log_message "--- Upgrade Process Summary ---"
+    log_message "The following issues were detected and may require manual intervention:"
+    for failure in "${FAILURES[@]}"; do
+        log_message "  - $failure"
+    done
+    log_message "Please review the log file at $LOG_FILE for more details."
+else
+    log_message ""
+    log_message "System upgrade and cleaning completed successfully with no reported issues during the silent pass."
+fi
+
+exit 0;

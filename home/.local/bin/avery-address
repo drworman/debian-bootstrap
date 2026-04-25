@@ -1,0 +1,89 @@
+#!/usr/bin/perl -w
+#
+# avery-address — print Avery 5160/5260 address labels via PostScript
+#
+# Usage:
+#   avery-address "Line 1" "Line 2" "Line 3" ... > labels.ps
+#   lpr labels.ps
+#
+# Each command-line argument becomes a line of text on every label.
+# Output is PostScript on STDOUT, suitable for piping to a printer or
+# saving for later viewing/conversion (ps2pdf, etc).
+#
+# Original author: erco@3dsite.com (1996)
+#
+# Dependencies: perl
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — label geometry is hard-coded for Avery 5160/5260; if you need a
+#  different label sheet, edit the $cursor{} block below at your own risk.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+# MAIN
+{
+    local($x, $y, $count);
+    local(%cursor);
+
+    # COMPUTE X RANGE OF POSITIONS
+    $cursor{"x"}{"start"} = .40;	# indent from left edge
+    $cursor{"x"}{"end"}   = 8.5;
+    $cursor{"x"}{"inc"}   = (8.25/3);	# 3 labels wide
+
+    # COMPUTE Y RANGE OF POSITIONS
+    $cursor{"y"}{"start"} = 11 - .80;	# offset from top
+    $cursor{"y"}{"end"}   = .5;
+    $cursor{"y"}{"inc"}   = -1;		# step rate 1 inch per label
+
+    $count = 21;
+
+    # POSTSCRIPT HEADER
+    print <<"EOF";
+%!PS-Adobe-1.0
+%%DocumentFonts: Courier-Bold
+%%Dimensions: 0 0 612 792
+%%Title: avery 5160/5260 Address Label Generator
+%%Creator: avery perl script
+%%Pages: (atend)
+%%EndComments
+% -- CONVERT TO INCHES
+72 72 scale save
+%%EndProlog
+%%Page 1 1
+save
+%% FONT SIZE/COLOR
+% -- When scaled to inches, '1.0 scalefont' makes 
+% -- Helvetica-Bold letters .75 inch high
+% /Courier-Bold findfont
+/Helvetica-Narrow-Bold findfont
+0.150000 scalefont setfont 0 setgray
+EOF
+
+    for ( $y =  $cursor{"y"}{"start"};
+	  $y >= $cursor{"y"}{"end"};
+	  $y += $cursor{"y"}{"inc"})
+    {
+	for ( $x =  $cursor{"x"}{"start"};
+	      $x <= $cursor{"x"}{"end"};
+	      $x += $cursor{"x"}{"inc"})
+	{
+	    local($ystep) = $cursor{"y"}{"inc"} / ($#ARGV+1+2);
+	    local($yoff)  = 0;
+
+	    # PRINT EACH ARGUMENT
+	    foreach $s ( @ARGV )
+	    {
+		printf("%.2f %.2f moveto (%s) show\n", 
+		    $x, ($y+$yoff), $s );
+		$yoff += $ystep;
+	    }
+	}
+	$count++;
+    }
+
+    # POSTSCRIPT TRAILER
+    print <<"EOF";
+showpage restore
+%%Trailer
+%%Pages: 1
+EOF
+}

@@ -1,0 +1,18 @@
+#!/bin/sh
+# chrome — Google Chrome wrapper that uses the GNOME keyring for password storage
+#
+# Usage:
+#   chrome [chrome args...]
+#
+# Forces Chrome to use libsecret/gnome-keyring for the password store
+# instead of basic plaintext, so saved logins are encrypted at rest.
+#
+# Dependencies: google-chrome-stable, libsecret-1-0, gnome-keyring
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Path to the chrome binary. Most installs put it at /usr/bin or /bin.
+CHROME_BIN="/bin/google-chrome-stable"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+exec "$CHROME_BIN" --password-store="gnome-libsecret" "$@"
+#exec "$CHROME_BIN" --disable-features=ExtensionManifestV2Unsupported,ExtensionManifestV2Disabled --password-store="gnome-libsecret" "$@"

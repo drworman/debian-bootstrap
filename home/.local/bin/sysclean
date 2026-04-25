@@ -1,0 +1,104 @@
+#!/bin/bash
+# sysclean — remove orphaned packages (and optionally named ones) cross-distro
+#
+# Usage:
+#   sysclean                    # just remove orphans
+#   sysclean pkg1 pkg2 ...      # remove orphans, then those packages, then orphans again
+#
+# Detects the running distro (Debian, Arch, or Gentoo) and uses the
+# appropriate package manager. Logs everything to /tmp/pkg-cleanup.log.
+#
+# The double-pass orphan removal catches dependencies that only become
+# orphaned once the named packages have been purged.
+#
+# Dependencies: sudo, coreutils (date, tee, grep)
+#   Debian: apt
+#   Arch:   pacman
+#   Gentoo: portage (emerge)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Where the run log is written. Truncated each invocation.
+LOG_FILE="/tmp/pkg-cleanup.log"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+> "$LOG_FILE"
+
+# Logging function
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+# Detect Linux distribution
+detect_distro() {
+    local os_release_id=$(grep -oP '^ID=\K[^[:space:]]+' /etc/os-release 2>/dev/null)
+    case "$os_release_id" in
+        "debian") echo "Debian" ;;
+        "arch") echo "Arch Linux" ;;
+        "gentoo") echo "Gentoo" ;;
+        *) echo "Unsupported" ;;
+    esac
+}
+
+DISTRO=$(detect_distro)
+log_message "Detected Distribution: $DISTRO"
+
+# Function to remove orphaned packages
+remove_orphans() {
+    case "$DISTRO" in
+        "Debian")
+            log_message "Removing orphaned packages (Debian)..."
+            sudo apt-get autoremove --purge -y >>"$LOG_FILE" 2>&1
+            ;;
+        "Arch Linux")
+            log_message "Removing orphaned packages (Arch)..."
+            ORPHANS=$(pacman -Qdtq)
+            if [ -n "$ORPHANS" ]; then
+                sudo pacman -Rns $ORPHANS --noconfirm >>"$LOG_FILE" 2>&1
+            else
+                log_message "No orphaned packages found."
+            fi
+            ;;
+        "Gentoo")
+            log_message "Removing orphaned packages (Gentoo)..."
+            sudo emerge --depclean -q >>"$LOG_FILE" 2>&1
+            ;;
+        *)
+            log_message "Unsupported distribution. Skipping orphan cleanup."
+            ;;
+    esac
+}
+
+# Function to remove specified packages
+remove_specified_packages() {
+    if [ "$#" -gt 0 ]; then
+        log_message "Removing specified packages: $*"
+        case "$DISTRO" in
+            "Debian")
+                sudo apt-get remove --purge -y "$@" >>"$LOG_FILE" 2>&1
+                ;;
+            "Arch Linux")
+                sudo pacman -Rns "$@" --noconfirm >>"$LOG_FILE" 2>&1
+                ;;
+            "Gentoo")
+                sudo emerge -C "$@" >>"$LOG_FILE" 2>&1
+                ;;
+            *)
+                log_message "Unsupported distribution. Cannot remove packages."
+                ;;
+        esac
+    fi
+}
+
+# First orphan cleanup
+remove_orphans
+
+# Remove specified packages
+if [ "$#" -gt 0 ]; then
+    remove_specified_packages "$@"
+fi
+
+# Second orphan cleanup
+remove_orphans
+
+log_message "Cleanup process completed."
+exit 0

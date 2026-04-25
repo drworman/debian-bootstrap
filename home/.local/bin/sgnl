@@ -1,0 +1,18 @@
+#!/bin/sh
+# sgnl — Signal Desktop wrapper that uses the GNOME keyring
+#
+# Usage:
+#   sgnl [signal-desktop args...]
+#
+# Forces signal-desktop to use libsecret/gnome-keyring for the password
+# store instead of falling back to plaintext, so credentials are
+# encrypted at rest.
+#
+# Dependencies: signal-desktop, libsecret-1-0, gnome-keyring
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Path to the signal-desktop binary.
+SIGNAL_BIN="/usr/bin/signal-desktop"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+exec "$SIGNAL_BIN" --password-store="gnome-libsecret" "$@"

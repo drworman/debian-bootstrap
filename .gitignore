@@ -1,0 +1,17 @@
+# universal gitignore
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.envrc
+*.log
+node_modules/
+dist/
+build/
+.cache/

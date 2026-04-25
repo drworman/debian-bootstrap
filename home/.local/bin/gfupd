@@ -1,0 +1,31 @@
+#!/bin/bash
+# gfupd — fetch / update the Google Fonts collection into ~/.fonts
+#
+# Usage:
+#   gfupd
+#
+# Downloads the latest google/fonts master.zip, extracts every TTF into
+# the user's font directory, and refreshes the fontconfig cache.
+#
+# Note: the master.zip from google/fonts is large (>1 GB). Make sure the
+# CACHE_DIR has enough free space.
+#
+# Dependencies: wget, unzip, fontconfig (fc-cache)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Where the downloaded archive is cached. Created if it does not exist.
+CACHE_DIR="$HOME/Downloads/google-fonts-git"
+
+# Where TTFs are extracted. fontconfig will pick anything up under here.
+FONT_DIR="$HOME/.fonts"
+
+# Source archive URL.
+ARCHIVE_URL="https://github.com/google/fonts/archive/master.zip"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+mkdir -p "$CACHE_DIR" "$FONT_DIR"
+cd "$CACHE_DIR"
+wget -c -N "$ARCHIVE_URL"
+unzip -uo master.zip "*.ttf" -d "$FONT_DIR"
+cd -
+fc-cache -fv

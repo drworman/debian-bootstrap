@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# getipkgs — generate per-host installed-package lists
+#
+# Usage:
+#   getipkgs
+#
+# Detects the running distribution (Debian, Arch, or Gentoo) and writes
+# sorted package lists to the current directory, named:
+#   <hostname>-<distro>-installed-manual.txt
+#   <hostname>-<distro>-installed-auto.txt    (Debian only)
+#   <hostname>-<distro>-installed-all.txt     (Gentoo only)
+#
+# Useful for backups or seeding a new install of the same distro.
+#
+# Dependencies:
+#   Debian:  apt (apt-mark)
+#   Arch:    pacman
+#   Gentoo:  portage-utils (qlist)
+#   All:     coreutils (sort), hostname
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — output paths and supported distros are auto-detected.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+# Detect distribution safely
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        case "$ID" in
+            debian|ubuntu)
+                echo "Debian"
+                ;;
+            arch)
+                echo "Arch Linux"
+                ;;
+            gentoo)
+                echo "Gentoo"
+                ;;
+            *)
+                echo "Unsupported"
+                ;;
+        esac
+    else
+        echo "Unsupported"
+    fi
+}
+
+DISTRO_RAW=$(detect_distro)
+DISTRO=${DISTRO_RAW// /-}
+
+HN_RAW=$(hostname -f 2>/dev/null || hostname)
+HN=${HN_RAW// /-}
+
+echo "Detected Distribution: $DISTRO_RAW"
+echo "Hostname: $HN_RAW"
+
+case "$DISTRO_RAW" in
+    "Debian")
+        echo "Generating package lists for Debian..."
+
+        apt-mark showmanual | sort -u \
+            > "$HN-$DISTRO-installed-manual.txt"
+
+        apt-mark showauto | sort -u \
+            > "$HN-$DISTRO-installed-auto.txt"
+
+        echo "Generated:"
+        echo "  $HN-$DISTRO-installed-manual.txt"
+        echo "  $HN-$DISTRO-installed-auto.txt"
+        ;;
+
+    "Arch Linux")
+        echo "Generating package lists for Arch Linux..."
+
+        pacman -Qqe | sort -u \
+            > "$HN-$DISTRO-installed-manual.txt"
+
+        echo "Generated:"
+        echo "  $HN-$DISTRO-installed-manual.txt"
+        ;;
+
+    "Gentoo")
+        echo "Generating package lists for Gentoo..."
+
+        qlist -IC | sort -u \
+            > "$HN-$DISTRO-installed-all.txt"
+
+        echo "Generated:"
+        echo "  $HN-$DISTRO-installed-all.txt"
+        ;;
+
+    *)
+        echo "Error: Unsupported distribution."
+        exit 1
+        ;;
+esac
+
+echo "Done."

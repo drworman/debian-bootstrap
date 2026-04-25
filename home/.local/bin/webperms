@@ -1,0 +1,37 @@
+#!/bin/bash
+# webperms — apply web-server-correct permissions (644 / 755) recursively
+#
+# Usage:
+#   cd /var/www/site
+#   webperms
+#
+# Run from inside the directory you want to fix. All regular files become
+# 0644 (world-readable, owner-writable), all directories become 0755.
+# This is the standard for Apache/nginx document roots.
+#
+# Dependencies: findutils, coreutils (chmod), sudo
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — operates on $PWD.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+#applyPerms() {
+#    find -L ./ -type f -print0 | xargs -0 -n 1 --no-run-if-empty chmod 644
+#    find -L ./ -type d -print0 | xargs -0 -n 1 --no-run-if-empty chmod 755
+#}
+
+#if [[ -d ./ ]]; then
+#
+#    ls ./ | while read x; do
+#        if [[ -d $x ]]; then
+#            case $x in
+#                *.*)
+#                    applyPerms $x
+#                    ;;
+#            esac
+#        fi
+#        done
+#fi
+
+sudo find ./ -type f -exec chmod 644 {} \;
+sudo find ./ -type d -exec chmod 755 {} \;

@@ -1,0 +1,34 @@
+#!/bin/bash
+# mkdebarchive — collect every installed .deb into a local archive directory
+#
+# Usage:
+#   mkdebarchive
+#
+# Cleans the apt cache, refreshes packages, then re-downloads (without
+# installing) the .deb file for every package currently marked installed,
+# copying them into ~/debarchive/ along with a `dpkg --get-selections`
+# manifest. Useful for offline reinstall or building an offline mirror.
+#
+# Requires sudo; will rm -f everything currently in ~/debarchive/.
+#
+# Dependencies: apt, dpkg, localepurge, sudo, awk, coreutils
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Where the .deb files and manifest are written. WILL be cleared on each run.
+ARCHIVE_DIR="$HOME/debarchive"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+mkdir -p "$ARCHIVE_DIR"
+rm -f "$ARCHIVE_DIR"/*
+sudo apt-get -y autoclean
+sudo apt-get -y clean
+sudo apt-get -y autoremove --purge
+sudo apt-get -y autoremove
+sudo apt-get -y purge
+sudo apt-get update
+sudo apt-get -f -y upgrade
+#sudo apt-get -f -y install linux-generic linux-headers-generic linux-image-generic
+sudo localepurge
+sudo dpkg --get-selections > "$ARCHIVE_DIR/installed-software.txt"
+dpkg -l | grep "^ii"| awk ' {print $2} ' | xargs sudo apt-get -y install --reinstall --download-only
+cp /var/cache/apt/archives/*.deb "$ARCHIVE_DIR/"

@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# Font Awesome icons
+ICON_CHARGING=""     # Charging bolt
+ICON_DISCHARGING=""  # Battery icon (medium)
+ICON_FULL=""         # Full battery
+ICON_NONE=""         # AC Power / Plug
+ICON_UNKNOWN=""       # Unknown state
+
+URGENT_VALUE=10
+
+# Find power supply devices (excluding HID batteries)
+POWER_SUPPLY_PATH="/sys/class/power_supply"
+BATTERIES=()
+for battery_path in "$POWER_SUPPLY_PATH"/BAT*; do
+    if [[ -d "$battery_path" ]]; then
+        BATTERIES+=("$battery_path")
+    fi
+done
+
+# Handle desktop systems with no battery
+if [[ ${#BATTERIES[@]} -eq 0 ]]; then
+    echo "$ICON_NONE AC Power"
+    echo "AC Power"
+    echo ""
+    exit 0
+fi
+
+# Check AC status
+AC_ONLINE=0
+if [[ -f "$POWER_SUPPLY_PATH"/AC/online ]]; then
+    AC_ONLINE=$(cat "$POWER_SUPPLY_PATH"/AC/online)
+fi
+
+TOTAL_PERCENT=0
+NUM_BATTERIES=${#BATTERIES[@]}
+IS_CHARGING=false
+IS_DISCHARGING=false
+IS_FULL=false
+
+BATTERY_DETAILS=()
+
+for BATTERY_PATH in "${BATTERIES[@]}"; do
+    BAT_NAME=$(basename "$BATTERY_PATH")
+    STATUS=$(cat "$BATTERY_PATH/status")
+    CAPACITY=$(cat "$BATTERY_PATH/capacity")
+    TOTAL_PERCENT=$((TOTAL_PERCENT + CAPACITY))
+
+    case "$STATUS" in
+        "Charging") IS_CHARGING=true ;;
+        "Discharging") IS_DISCHARGING=true ;;
+        "Full") IS_FULL=true ;;
+    esac
+
+    ICON=$ICON_UNKNOWN
+    case "$STATUS" in
+        "Charging") ICON=$ICON_CHARGING ;;
+        "Discharging") ICON=$ICON_DISCHARGING ;;
+        "Full") ICON=$ICON_FULL ;;
+        "Not charging") ICON=$ICON_NONE ;;
+    esac
+
+    BATTERY_DETAILS+=("$BAT_NAME: $CAPACITY% $ICON")
+done
+
+AVG_PERCENT=$((TOTAL_PERCENT / NUM_BATTERIES))
+DETAILS_STR=$(IFS=,; echo "${BATTERY_DETAILS[*]}")
+
+if $IS_CHARGING; then
+    echo "$ICON_CHARGING $AVG_PERCENT% AC ($DETAILS_STR)"
+    echo "$AVG_PERCENT% AC"
+elif $IS_FULL; then
+    echo "$ICON_FULL $AVG_PERCENT% AC ($DETAILS_STR)"
+    echo "$AVG_PERCENT% AC"
+elif $IS_DISCHARGING; then
+    echo "$ICON_DISCHARGING $AVG_PERCENT% ($DETAILS_STR)"
+    echo "$AVG_PERCENT%"
+else
+    echo "$ICON_UNKNOWN $AVG_PERCENT% ($DETAILS_STR)"
+    echo "$AVG_PERCENT%"
+fi
+
+echo ""
+
+if [[ $AVG_PERCENT -le $URGENT_VALUE ]] && $IS_DISCHARGING; then
+    exit 33
+fi
+
+exit 0

@@ -1,0 +1,6 @@
+# Unison preferences
+batch = false
+root = /home/username
+root = ssh://username@desktop-hostname.domain.tld//home/username
+
+include unison_prefs

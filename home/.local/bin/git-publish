@@ -1,0 +1,27 @@
+#!/bin/bash
+# git-publish — sync to upstream then mirror everywhere
+# Alias: gpublish
+#
+# Usage:
+#   git-publish
+#
+# End-of-day or pre-release helper. Runs gsync (safe branch + tag sync)
+# followed by gmirror (force --mirror to all remotes).
+#
+# Dependencies: git, git-sync, git-mirror
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+echo "=== gsync ==="
+git sync
+
+echo ""
+echo "=== gmirror ==="
+git mirror
+
+echo ""
+echo "=== Publish complete ==="

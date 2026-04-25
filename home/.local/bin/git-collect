@@ -1,0 +1,52 @@
+#!/bin/bash
+# git-collect — archive a repo using git-aware file selection
+# Alias: gcollect
+#
+# Usage:
+#   git-collect <output.tar.gz> [repo_path]
+#
+# Creates a tar.gz of all tracked + untracked-but-not-ignored files in the
+# repo, excluding common image formats. Honours .gitignore automatically
+# because the file list comes from `git ls-files`.
+#
+# Dependencies: git, tar, grep, coreutils (realpath, du, cut)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Regex of file extensions to exclude from the archive (case-sensitive).
+# Add or remove patterns separated by | inside the parentheses.
+EXCLUDE_PATTERN='\.(jpg|jpeg|png|gif|bmp|ico|webp|tiff|svg)$'
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+OUT="${1:-}"
+REPO="${2:-.}"
+
+if [ -z "$OUT" ]; then
+    echo "Usage: $0 <output.tar.gz> [repo_path]"
+    exit 1
+fi
+
+if [ ! -d "$REPO" ]; then
+    echo "ERROR: Repo path not found: $REPO"
+    exit 1
+fi
+
+# Resolve OUT to absolute path BEFORE changing directories
+OUT="$(realpath "$OUT")"
+
+cd "$REPO"
+
+# Ensure we're inside a git repo
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: $REPO is not a git repository"
+    exit 1
+fi
+
+# Create archive excluding image files
+git ls-files --cached --others --exclude-standard -z | \
+grep -zvE "$EXCLUDE_PATTERN" | \
+tar --null -czvf "$OUT" --files-from=-
+
+echo "Done. Archive written to: $OUT"
+echo "Size: $(du -sh "$OUT" | cut -f1)"

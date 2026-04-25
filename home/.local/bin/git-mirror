@@ -1,0 +1,42 @@
+#!/bin/bash
+# git-mirror — force mirror all refs to all remotes
+# Alias: gmirror
+#
+# Usage:
+#   git-mirror
+#
+# Fetches every configured remote with --prune, then push --mirror to each.
+# --mirror DELETES from remotes any ref deleted locally — that is correct
+# mirror behaviour but is destructive. Use git-sync (gsync) if you want a
+# safer push-only sync that does not remove anything.
+#
+# Dependencies: git
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — operates on whatever remotes the current repo has configured.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+remotes=$(git remote)
+
+if [ -z "$remotes" ]; then
+    echo "[!] No remotes configured."
+    exit 1
+fi
+
+echo "=== Fetching ==="
+for r in $remotes; do
+    echo "  fetch $r"
+    git fetch "$r" --prune 2>&1 | sed 's/^/    /' || echo "  [!] fetch failed: $r (continuing)"
+done
+
+echo ""
+echo "=== Mirroring ==="
+for r in $remotes; do
+    echo "  mirror -> $r"
+    git push "$r" --mirror 2>&1 | sed 's/^/    /' || echo "  [!] mirror failed: $r"
+done
+
+echo ""
+echo "=== Mirror complete ==="

@@ -1,0 +1,17 @@
+#!/bin/bash
+# rsau — restart user audio stack
+#
+# Usage:
+#   rsau
+#
+# Restarts the user-level pipewire / wireplumber / pipewire-pulse units.
+# Useful when audio devices vanish, get stuck, or need to be re-enumerated
+# without logging out.
+#
+# Dependencies: systemd (systemctl), pipewire, wireplumber, pipewire-pulse
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+systemctl --user restart wireplumber pipewire pipewire-pulse

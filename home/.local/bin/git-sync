@@ -1,0 +1,108 @@
+#!/bin/bash
+# git-sync — safely sync branches and tags with their upstream remotes
+# Alias: gsync
+#
+# Usage:
+#   git-sync
+#
+# For every local branch that has an upstream set:
+#   - Pushes the branch if it is ahead of its upstream
+#   - Pulls (ff-only) if it is behind
+#   - Warns and skips if the branch has diverged — manual fix required
+# Pushes any local tags not yet present on each remote.
+# Branches with no upstream are skipped silently — set one with:
+#   git push -u <remote> <branch>
+#
+# Dependencies: git, awk, grep, sed, coreutils
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None — operates on the upstreams already configured per branch.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+# ── Discover remotes from branch upstreams ────────────────────────────────────
+
+remotes=$(git for-each-ref --format="%(upstream:short)" refs/heads/ \
+    | grep -v '^$' | cut -d/ -f1 | sort -u)
+
+if [ -z "$remotes" ]; then
+    echo "[!] No branches with upstreams found. Nothing to sync."
+    echo "    Set upstreams with: git push -u idev <branch>"
+    exit 0
+fi
+
+# ── Fetch ────────────────────────────────────────────────────────────────────
+
+echo "=== Fetching ==="
+for r in $remotes; do
+    echo "  fetch $r"
+    git fetch "$r" --prune 2>&1 | sed 's/^/    /' || echo "  [!] fetch failed: $r"
+done
+
+# ── Sync branches ────────────────────────────────────────────────────────────
+
+echo ""
+echo "=== Branches ==="
+for branch in $(git for-each-ref --format="%(refname:short)" refs/heads/); do
+    upstream=$(git for-each-ref --format="%(upstream:short)" "refs/heads/$branch" 2>/dev/null || true)
+
+    if [ -z "$upstream" ]; then
+        echo "  skip  $branch (no upstream — use: git push -u idev $branch)"
+        continue
+    fi
+
+    # Check if upstream ref actually exists (remote may not have the branch yet)
+    if ! git rev-parse --verify "$upstream" >/dev/null 2>&1; then
+        echo "  push  $branch -> ${upstream%%/*} (new branch on remote)"
+        git push "${upstream%%/*}" "$branch"
+        continue
+    fi
+
+    ahead=$(git rev-list --count "$upstream..$branch" 2>/dev/null || echo 0)
+    behind=$(git rev-list --count "$branch..$upstream" 2>/dev/null || echo 0)
+
+    if [ "$ahead" -gt 0 ] && [ "$behind" -eq 0 ]; then
+        echo "  push  $branch -> ${upstream%%/*} ($ahead ahead)"
+        git push "${upstream%%/*}" "$branch"
+    elif [ "$behind" -gt 0 ] && [ "$ahead" -eq 0 ]; then
+        echo "  pull  $branch <- ${upstream%%/*} ($behind behind)"
+        git pull --ff-only "${upstream%%/*}" "$branch"
+    elif [ "$ahead" -gt 0 ] && [ "$behind" -gt 0 ]; then
+        echo "  DIVERGED $branch ($ahead ahead, $behind behind) — resolve manually"
+    else
+        echo "  ok    $branch"
+    fi
+done
+
+# ── Sync tags ────────────────────────────────────────────────────────────────
+
+echo ""
+echo "=== Tags ==="
+
+local_tags=$(git tag 2>/dev/null)
+if [ -z "$local_tags" ]; then
+    echo "  (no local tags)"
+else
+    for r in $remotes; do
+        # Get remote tags as a newline-separated list of names only
+        remote_tag_names=$(git ls-remote --tags "$r" 2>/dev/null \
+            | awk '{print $2}' \
+            | grep -v '\^{}' \
+            | sed 's|refs/tags/||' || true)
+
+        while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            if echo "$remote_tag_names" | grep -qx "$tag"; then
+                : # already on remote
+            else
+                echo "  push  tag $tag -> $r"
+                git push "$r" "refs/tags/$tag"
+            fi
+        done <<< "$local_tags"
+    done
+    echo "  tags up to date"
+fi
+
+echo ""
+echo "=== Sync complete ==="

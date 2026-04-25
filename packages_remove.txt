@@ -1,0 +1,5 @@
+bsd-mailx
+exim4
+exim4-*
+mailutils-common
+mailutils

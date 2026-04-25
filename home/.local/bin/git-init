@@ -1,0 +1,185 @@
+#!/bin/bash
+# git-init — bootstrap a new repo with priv + ghub remotes
+# Alias: ginit
+#
+# Usage:
+#   git-init <owner/repo>
+#
+# Creates a new local repo, sets up `priv` (primary, your own server) and
+# `ghub` (mirror, GitHub) remotes, optionally creates a private GitHub repo
+# via the gh CLI, copies template files (signing key, release workflow,
+# .gitignore, etc.) from $TEMPLATE_DIR, makes the initial commit on main,
+# branches off `dev`, pushes both branches to `priv`, and sets upstreams.
+#
+# Leaves you on the dev branch, ready to work.
+#
+# Dependencies: git, github-cli (gh, optional), rsync, sed, grep
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# SSH user@host for your GitHub remote (or use https://github.com/...).
+GHUB_URL="git@github.com"
+
+# SSH user@host for your private/primary remote (e.g. self-hosted gitolite).
+PRIV_URL="user@hostname.domain.tld"
+
+# Where the template files live. Use $GIT_TEMPLATE_DIR to override at runtime.
+TEMPLATE_DIR="${GIT_TEMPLATE_DIR:-$HOME/.local/share/git-template}"
+
+# Path to the gh CLI binary. Set to empty to disable GitHub auto-creation.
+GH_CLI="${GH_CLI:-/bin/gh}"
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+set -euo pipefail
+
+GH_AUTO_CREATE=true
+
+if [ ! -x "$GH_CLI" ]; then
+    echo "[!] gh CLI not found at $GH_CLI, skipping GitHub repo creation"
+    GH_AUTO_CREATE=false
+fi
+
+# ── Args ──────────────────────────────────────────────────────────────────────
+
+if [ -z "${1:-}" ]; then
+    echo "Usage: git-init <owner/repo>"
+    exit 1
+fi
+
+FULL="$1"
+OWNER="${FULL%%/*}"
+REPO="${FULL##*/}"
+
+# ── Create local repo dir ─────────────────────────────────────────────────────
+
+if [ -d "$REPO" ]; then
+    echo "[!] Directory $REPO already exists"
+else
+    mkdir -p "$REPO"
+    echo "[+] Created directory: $REPO"
+fi
+
+cd "$REPO"
+
+if [ ! -d .git ]; then
+    git init
+    echo "[+] Git initialized"
+fi
+
+# ── Local git config ──────────────────────────────────────────────────────────
+
+git config core.repositoryformatversion 0
+git config core.filemode true
+git config core.bare false
+git config core.logallrefupdates true
+
+# ── Remotes ───────────────────────────────────────────────────────────────────
+
+for name in priv ghub; do
+    if [ "$name" = "priv" ]; then
+        url="$PRIV_URL:$OWNER/$REPO.git"
+    else
+        url="$GHUB_URL:$OWNER/$REPO.git"
+    fi
+
+    if git remote | grep -q "^${name}$"; then
+        echo "[!] Remote $name already exists"
+    else
+        git remote add "$name" "$url"
+        echo "[+] Remote $name -> $url"
+    fi
+done
+
+# ── Seed files from template ──────────────────────────────────────────────────
+
+if [ -d "$TEMPLATE_DIR" ]; then
+    echo "[*] Seeding from template: $TEMPLATE_DIR"
+    rsync -a --exclude='.git' "$TEMPLATE_DIR/" ./
+    echo "[+] Template files copied"
+else
+    echo "[!] Template dir not found: $TEMPLATE_DIR — seeding minimal files only"
+fi
+
+# Ensure README exists (template may supply one; if not, create a stub)
+[ -f README.md ] || printf "# %s\n" "$REPO" > README.md
+
+# Write gitweb description from README H1
+DESCRIPTION=$(grep -m1 -E '^\s*#\s+' README.md \
+    | sed 's/^[[:space:]]*#[[:space:]]*//' || true)
+[ -z "$DESCRIPTION" ] && DESCRIPTION="$REPO"
+printf "%s\n" "$DESCRIPTION" > description
+echo "[+] description: $DESCRIPTION"
+
+# ── GitHub repo creation ──────────────────────────────────────────────────────
+
+if $GH_AUTO_CREATE; then
+    if ! "$GH_CLI" repo view "$OWNER/$REPO" >/dev/null 2>&1; then
+        echo "[*] Creating GitHub repo $OWNER/$REPO (private mirror)..."
+        "$GH_CLI" repo create "$OWNER/$REPO" --private
+        # Disable wiki and issues via API (modern gh CLI dropped those flags)
+        "$GH_CLI" api "repos/$OWNER/$REPO" \
+            --method PATCH \
+            -f has_issues=false \
+            -f has_wiki=false \
+            --silent || echo "[!] Could not disable issues/wiki (non-fatal)"
+        echo "[+] GitHub repo created"
+    else
+        echo "[!] GitHub repo $OWNER/$REPO already exists"
+    fi
+fi
+
+# ── Initial commit on main ────────────────────────────────────────────────────
+
+if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+    git add .
+    git commit -m "Initial commit"
+    git branch -M main
+    echo "[+] Initial commit on main"
+else
+    echo "[!] HEAD already exists, skipping initial commit"
+fi
+
+git show-ref --verify --quiet refs/heads/main || {
+    echo "[!] main branch missing after commit — aborting"
+    exit 1
+}
+
+# ── Dev branch ───────────────────────────────────────────────────────────────
+
+if git show-ref --verify --quiet refs/heads/dev; then
+    echo "[!] Branch dev already exists"
+else
+    git checkout -b dev
+    echo "[+] Branch dev created from main"
+fi
+
+# ── Push to priv ─────────────────────────────────────────────────────────────
+
+echo "[*] Pushing main and dev -> priv"
+git push priv main
+git push priv dev
+
+# ── Set upstreams (after push so remote-tracking refs exist) ─────────────────
+
+git branch --set-upstream-to=priv/main main \
+    && echo "[+] main tracks priv/main" \
+    || echo "[!] Could not set upstream for main"
+
+git branch --set-upstream-to=priv/dev dev \
+    && echo "[+] dev tracks priv/dev" \
+    || echo "[!] Could not set upstream for dev"
+
+# ── Leave on dev ─────────────────────────────────────────────────────────────
+
+git checkout dev 2>/dev/null || true
+
+# ── Summary ──────────────────────────────────────────────────────────────────
+
+echo ""
+echo "[✓] $REPO ready"
+echo "  Primary : $PRIV_URL:$OWNER/$REPO.git"
+echo "  Mirror  : $GHUB_URL:$OWNER/$REPO.git"
+echo ""
+echo "  main  → priv/main"
+echo "  dev   → priv/dev  ← current"
+echo ""
+echo "Next: gsync / gpublish as normal"

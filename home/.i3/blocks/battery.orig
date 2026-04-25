@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Font Awesome icons
+ICON_CHARGING=""     # Charging bolt
+ICON_DISCHARGING=""  # Battery icon (medium)
+ICON_FULL=""         # Full battery
+ICON_NONE=""         # AC Power / Plug
+ICON_UNKNOWN=""       # Unknown state
+
+# Set low battery warning threshold
+URGENT_VALUE=10
+
+# Find all battery directories
+BATTERIES=($(find /sys/class/power_supply/ -maxdepth 1 -type d -name "BAT*"))
+NUM_BATTERIES=${#BATTERIES[@]}
+
+# Handle desktop systems with no battery
+if [[ $NUM_BATTERIES -eq 0 ]]; then
+    echo "$ICON_NONE AC Power"
+    echo "AC Power"
+    echo ""
+    exit 0
+fi
+
+# Initialize values
+TOTAL_PERCENT=0
+IS_CHARGING=false
+IS_DISCHARGING=false
+IS_FULL=false
+
+# Read battery states
+for BATTERY_PATH in "${BATTERIES[@]}"; do
+    STATUS=$(cat "$BATTERY_PATH/status")
+    CAPACITY=$(cat "$BATTERY_PATH/capacity")
+    TOTAL_PERCENT=$((TOTAL_PERCENT + CAPACITY))
+
+    case "$STATUS" in
+        "Charging") IS_CHARGING=true ;;
+        "Discharging") IS_DISCHARGING=true ;;
+        "Full") IS_FULL=true ;;
+    esac
+done
+
+# Average capacity across all batteries
+AVG_PERCENT=$((TOTAL_PERCENT / NUM_BATTERIES))
+
+# Compose display
+if $IS_CHARGING; then
+    ICON=$ICON_CHARGING
+    echo "$ICON ${AVG_PERCENT}% AC"
+    echo "${AVG_PERCENT}% AC"
+elif $IS_FULL; then
+    ICON=$ICON_FULL
+    echo "$ICON ${AVG_PERCENT}% AC"
+    echo "${AVG_PERCENT}% AC"
+elif $IS_DISCHARGING; then
+    ICON=$ICON_DISCHARGING
+    echo "$ICON ${AVG_PERCENT}%"
+    echo "${AVG_PERCENT}%"
+else
+    ICON=$ICON_UNKNOWN
+    echo "$ICON ${AVG_PERCENT}%"
+    echo "${AVG_PERCENT}%"
+fi
+
+echo ""
+
+# Signal urgent if discharging and very low
+if [[ $AVG_PERCENT -le $URGENT_VALUE ]] && $IS_DISCHARGING; then
+    exit 33
+fi
+
+exit 0
+

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+EXEC_SCRIPT="$(${HOME}/.local/bin/${BLOCK_INSTANCE})"
+
+UNREAD_COUNT=(${EXEC_SCRIPT})
+
+# Left click
+#if [[ "${BLOCK_BUTTON}" -eq 1 ]]; then
+#  xdg-open "${MAIN_DOMAIN}"
+#fi
+
+URGENT_VALUE="20"
+
+if [[ "${UNREAD_COUNT}" = "" ]]; then
+  exit
+fi
+
+echo "${UNREAD_COUNT}"
+echo "${UNREAD_COUNT}"
+echo ""
+
+if [[ "${UNREAD_COUNT}" -ge "${URGENT_VALUE}" ]]; then
+  exit 33
+fi

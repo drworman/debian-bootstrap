@@ -1,0 +1,186 @@
+#!/usr/bin/python3
+# matrixlock.py — i3lock with a Matrix-rain animation behind the prompt
+#
+# Usage:
+#   matrixlock.py
+#
+# For every visible i3 workspace, launches a fullscreen terminal running
+# `neo` (Matrix-style rain), then locks the screen with i3lock. When the
+# screen is unlocked, the spawned terminals are killed.
+#
+# The PIDs of the spawned terminals are reported back through a tiny
+# loopback HTTP server so they can be reaped after unlock.
+#
+# Dependencies: python3, i3-wm (i3-msg), i3lock, xterm (or urxvt), neo,
+#               curl, bash, procps (kill)
+#
+# Note: `neo` is not in standard Debian repos — install from source:
+#       https://github.com/st3w/neo
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# Terminal emulator that hosts the rain animation. Must accept -e and -bg.
+I3_TERMINAL = 'xterm'             # 'urxvt' or 'xterm'
+
+# i3 instance name used to target the spawned terminals for fullscreen/focus.
+TERMINAL_INSTANCE_NAME = 'matrixlock'
+
+# Background colour of the animation terminals (any X11 colour name).
+TERMINAL_BG_COLOR = 'Black'
+
+# i3lock binary and the colour/visual settings it uses.
+I3LOCK_CMD = 'i3lock'
+I3LOCK_ARGS = [
+    '-n',
+    '--color=00000000',
+    '--inside-color=00000000',
+    '--ring-color=00ff00ff',
+    '--line-uses-inside',
+    '--keyhl-color=00ff00ff',
+    '--bshl-color=ff0000ff',
+    '--separator-color=22222200',
+    '--insidever-color=00000000',
+    '--ringver-color=00ff00ff',
+    '--insidewrong-color=00000000',
+    '--ringwrong-color=ff0000ff',
+    '--ind-pos=x+86:h-70',
+    '--radius=30',
+    '--verif-text=',
+    '--wrong-text=',
+    '--noinput-text=',
+    '--time-font=monospace',
+    '--time-size=24',
+    '--time-color=ffffffff',
+    '--date-color=ffffffff',
+    '--time-pos=x+110:h-70',
+]
+
+# Command (with options) used to draw the Matrix rain.
+MATRIX_CMD = 'neo --color=green2'
+
+# Seconds to wait for spawned terminals to phone home with their PID.
+SERVER_TIMEOUT_SECS = 10
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from subprocess import run, DEVNULL
+from threading import Thread, Event
+from time import time, sleep
+import json
+import sys
+
+
+def terminal_command(port):
+    """
+    Build the terminal command that:
+    - POSTs its own PID to our server,
+    - then runs matrix with specified command.
+    """
+    bash_cmd = f"curl -X POST localhost:{port}/$$ && sleep 0.1 && {MATRIX_CMD}"
+    bash_cmd_quoted = f"'{bash_cmd}'"
+
+    return [
+        I3_TERMINAL,
+        '-bg', TERMINAL_BG_COLOR,
+        '-name', TERMINAL_INSTANCE_NAME,
+        '-e', 'bash', '-c', bash_cmd_quoted
+    ]
+
+def build_i3_exec_command(ws_name, terminal_cmd):
+    if ' ' in ws_name or any(c in ws_name for c in ':/'):
+        ws_quoted = f'"{ws_name}"'
+    else:
+        ws_quoted = ws_name
+
+    terminal_cmd_str = ' '.join(terminal_cmd)
+    cmd = f'workspace {ws_quoted}; exec {terminal_cmd_str}'
+    return cmd
+
+def fullscreen_and_focus_cmd():
+    return f'[instance="{TERMINAL_INSTANCE_NAME}"] fullscreen enable, focus'
+
+def run_i3_command(cmd, description):
+    run(['i3-msg', cmd], check=True, stdout=DEVNULL)
+
+def main():
+    workspaces = get_workspaces()
+    visible = [ws for ws in workspaces if ws['visible']]
+
+    with SubprocessServer(('', 0), len(visible), SERVER_TIMEOUT_SECS) as server:
+        port = server.server_address[1]
+
+        for ws in visible:
+            term_cmd = terminal_command(port)
+
+            try:
+                exec_cmd = build_i3_exec_command(ws['name'], term_cmd)
+                run_i3_command(exec_cmd, f"launch terminal on workspace {ws['name']}")
+
+                sleep(0.5)
+
+                fs_cmd = fullscreen_and_focus_cmd()
+                run_i3_command(fs_cmd, f"fullscreen and focus terminal on workspace {ws['name']}")
+            except Exception:
+                pass
+
+    run([I3LOCK_CMD] + I3LOCK_ARGS, check=True)
+
+    for pid_path in server.received_posts:
+        if pid_path.startswith('/'):
+            try:
+                pid = int(pid_path[1:])
+                run(['kill', str(pid)])
+            except ValueError:
+                pass
+
+def get_workspaces():
+    cp = run(
+        ['i3-msg', '-t', 'get_workspaces'],
+        capture_output=True, check=True, text=True
+    )
+    return json.loads(cp.stdout)
+
+class SubprocessServer(HTTPServer):
+    def __init__(self, server_address, num_requests, timeout_secs=SERVER_TIMEOUT_SECS):
+        super().__init__(server_address, SubprocessHandler)
+        self.received_posts = []
+        self._num_requests = num_requests
+        self._timeout_secs = timeout_secs
+        self._thread = Thread(target=self._run_in_thread)
+        self._started = Event()
+        self._timeout_encountered = False
+
+    def __enter__(self):
+        result = super().__enter__()
+        self._thread.start()
+        self._started.wait()
+        return result
+
+    def __exit__(self, *args, **kwargs):
+        self._thread.join()
+
+    def _run_in_thread(self):
+        self._started.set()
+        end = time() + self._timeout_secs
+        for _ in range(self._num_requests):
+            time_remaining = end - time()
+            if time_remaining < 0:
+                break
+            self.timeout = time_remaining
+            self.handle_request()
+            if self._timeout_encountered:
+                break
+
+    def handle_timeout(self):
+        self._timeout_encountered = True
+
+class SubprocessHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.server.received_posts.append(self.path)
+        self.send_response(200)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        return  # suppress logging
+
+if __name__ == '__main__':
+    main()

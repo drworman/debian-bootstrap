@@ -1,0 +1,15 @@
+#!/bin/bash
+# duc — disk usage and file count for $HOME
+#
+# Usage:
+#   duc
+#
+# Prints the total size of $HOME and the count of regular files within it.
+#
+# Dependencies: coreutils (du, wc), findutils (find)
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+echo "Size: `du -csh ~/ | head -n1`" && echo "Files: `find ~/ -type f | wc -l`"

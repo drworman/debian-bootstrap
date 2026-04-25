@@ -1,0 +1,111 @@
+# devltop01.indevlin.net Conky theme by David R. Worman <david@worman.com>
+# requires:
+#   dig
+#   FontAwesome >=4.7.0 for icons
+#   $HOME/.local/bin/mail.* (for each account you want checked)
+
+background false
+cpu_avg_samples 2
+double_buffer false
+if_up_strictness address
+max_text_width 0
+mpd_host localhost
+mpd_port 6600
+out_to_console true
+out_to_x false
+override_utf8_locale true
+own_window false
+pad_percents 3
+short_units true
+temperature_unit fahrenheit
+total_run_times 0
+update_interval 1.0
+uppercase true
+use_spacer none
+separator_block_width 0
+
+# Default
+#colorcc #919192
+#colorbg #000000
+#colorfg #BEBEBF
+color0 #000001
+color1 #A43261
+color2 #77BB33
+color3 #AEA75D
+color4 #0066FF
+color5 #8C16DA
+color6 #006699
+color7 #BEBEBE
+color8 #222222
+color9 #BF5357
+#color10 #41A551
+#color11 #EFC334
+#color12 #416EA5
+#color13 #714DA5
+#color14 #0AC1CD
+#color15 #FFFFFF
+
+TEXT
+
+# JSON for i3bar
+
+{$color #919192} {$color}
+{$color #714DA5} ${battery BAT1} {$color}
+${if_gw}" },
+{$color #919192}  P:{$color}
+{$color #714DA5} ${texeci 300 $HOME/.local/bin/mail.pers} {$color}
+{$color #919192}  W:{$color}
+{$color #714DA5} ${texeci 300 $HOME/.local/bin/mail.work} {$color}
+${else}" },
+{$color #BF5357}  NO NETWORK {$color}
+${endif}" },
+{$color #919192} {$color}
+{$color #714DA5} ${exec amixer get Master | grep -oE -m1 "[[:digit:]]*%"} {$color}
+{$color #919192}  C:{$color}
+{$color #714DA5}${cpu cpu0}% {$color}
+{$color #919192}  R:{$color}
+{$color #714DA5}${memperc}% {$color}
+{$color #919192}  S:{$color}
+{$color #714DA5}${swapperc}% {$color}
+{$color #919192}  B:{$color}
+{$color #714DA5}${fs_used_perc /boot}% {$color}
+{$color #919192}  R:{$color}
+{$color #714DA5}${fs_used_perc /root}% {$color}
+{$color #919192}  H:{$color}
+{$color #714DA5}${fs_used_perc /home}% {$color}
+${if_gw}" },
+${if_up eth0}" },
+{$color #919192}  {$color}
+{$color #919192} L:{$color}
+{$color #714DA5}${addr eth0} {$color}
+{$color #919192} W:{$color}
+{$color #714DA5}${texeci 300 dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | tr -d '"'} {$color}
+${endif}" },
+${if_up wlan0}" },
+{$color #919192}  {$color}
+ {$color #919192}L:{$color}
+{$color #714DA5}${addr wlan0} {$color}
+{$color #919192} W:{$color}
+{$color #714DA5}${texeci 300 dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | tr -d '"'} {$color}
+${endif}" },
+${if_up usb0}" },
+{$color #919192}  {$color}
+{$color #919192} L:{$color}
+{$color #714DA5}${addr usb0} {$color}
+{$color #919192} W:{$color}
+{$color #714DA5}${texeci 300 dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | tr -d '"'} {$color}
+${endif}" },
+${else}" },
+{$color #BF5357}  NO NETWORK{$color}
+${endif}" },
+{$color #919192} {$color}
+{$color #714DA5} ${time %d %b %Y}{$color}
+{$color #919192} {$color}
+{$color #714DA5} ${time %H:%M:%S}{$color}
+${if_gw}" },
+{$color #919192} {$color}
+{$color #714DA5} ${weather http://weather.noaa.gov/pub/data/observations/metar/stations/ KPWK temperature}° Fahrenheit{$color}
+${else}" },
+{$color #BF5357}  NO NETWORK{$color}
+${endif}" }
+],

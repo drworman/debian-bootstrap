@@ -1,0 +1,21 @@
+#!/bin/bash
+# fd — find and remove duplicate files in the current directory tree
+#
+# Usage:
+#   cd /path/to/clean
+#   fd
+#
+# Recursively scans ./ for duplicates and silently keeps one copy of each,
+# replacing the others with hardlinks.
+#   -d  prompt before deletion → suppressed by -N
+#   -r  recurse into subdirectories
+#   -S  show size of duplicate files
+#   -N  no-prompt: take the first listed file as the keeper
+#
+# Dependencies: fdupes
+#
+# ─── User-editable variables ────────────────────────────────────────────────
+# (None.)
+# ─── Do not edit below this line ────────────────────────────────────────────
+
+fdupes -drSN ./

@@ -1,0 +1,7 @@
+# ~/.xprofile
+# Run user X session initialization scripts
+if [ -d "$HOME/.xsession.d" ]; then
+  for script in "$HOME/.xsession.d/"*; do
+    [ -x "$script" ] && "$script"
+  done
+fi

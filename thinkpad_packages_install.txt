@@ -1,0 +1,6 @@
+powermgmt-base
+powertop
+thinkfan
+tlp
+tp-smapi-dkms
+tpb

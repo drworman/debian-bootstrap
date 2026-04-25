@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Font Awesome icons
+ICON_ETH=""      # Ethernet
+ICON_WIFI=""     # Wi-Fi
+ICON_DOWN=""     # Disconnected
+ICON_OK=""       # Internet OK
+
+INTERFACES=("eth0" "wlan0")
+PING_TIMEOUT=2
+URGENT_THRESHOLD=20
+
+ACTIVE_IFACE=""
+CONNECTED_LAN=false
+CONNECTED_INTERNET=false
+IS_WIFI=false
+WIFI_QUALITY=""
+SSID=""
+
+# Check if interface is up and has IP
+check_iface() {
+    local iface=$1
+    ip link show "$iface" | grep -q "state UP" || return 1
+    ip addr show "$iface" | grep -q "inet " || return 1
+    return 0
+}
+
+# Detect active interface
+for iface in "${INTERFACES[@]}"; do
+    if check_iface "$iface"; then
+        ACTIVE_IFACE="$iface"
+        CONNECTED_LAN=true
+        [[ -d "/sys/class/net/${iface}/wireless" ]] && IS_WIFI=true
+        break
+    fi
+done
+
+# If connected to LAN, test Internet
+if $CONNECTED_LAN; then
+    ping -q -W $PING_TIMEOUT -c 1 1.1.1.1 &>/dev/null && CONNECTED_INTERNET=true
+fi
+
+# If Wi-Fi, get signal quality + SSID
+if $IS_WIFI; then
+    if [[ -f /proc/net/wireless ]]; then
+        WIFI_QUALITY=$(awk -v iface="${ACTIVE_IFACE}" '$0 ~ iface { print int($3 * 100 / 70) }' /proc/net/wireless)
+    fi
+    SSID=$(iw dev "$ACTIVE_IFACE" link | awk -F'ssid ' '/ssid/ {print $2}')
+fi
+
+# Output for i3blocks
+if ! $CONNECTED_LAN; then
+    echo -e "${ICON_DOWN} No network"
+    echo
+    echo "#FF0000"
+    exit 0
+elif $CONNECTED_INTERNET; then
+    if $IS_WIFI && [[ -n "$WIFI_QUALITY" ]]; then
+        echo -e "${ICON_WIFI} ${ICON_OK} ${SSID} ${WIFI_QUALITY}%"
+        echo
+        echo "#00FF00"
+        (( WIFI_QUALITY <= URGENT_THRESHOLD )) && exit 33
+    else
+        echo -e "${ICON_ETH} ${ICON_OK} Internet"
+        echo
+        echo "#00FF00"
+    fi
+else
+    if $IS_WIFI && [[ -n "$WIFI_QUALITY" ]]; then
+        echo -e "${ICON_WIFI} LAN only ${SSID} ${WIFI_QUALITY}%"
+        echo
+        echo "#FFFF00"
+        (( WIFI_QUALITY <= URGENT_THRESHOLD )) && exit 33
+    else
+        echo -e "${ICON_ETH} LAN only"
+        echo
+        echo "#FFFF00"
+    fi
+fi
+
