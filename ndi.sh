@@ -17,14 +17,25 @@ apt-get upgrade -y
 # ========= INSTALL REPO PACKAGES =========
 install_from_file() {
     local file="$1"
+    local fail_log="./install_fails.txt"
 
     [[ -f "$file" ]] || return 0
 
     mapfile -t pkgs < <(grep -vE '^\s*#|^\s*$' "$file")
 
-    if (( ${#pkgs[@]} > 0 )); then
-        apt-get install -y "${pkgs[@]}"
-    fi
+    (( ${#pkgs[@]} > 0 )) || return 0
+
+    : > "$fail_log"
+
+    local pkg
+    for pkg in "${pkgs[@]}"; do
+        echo "Installing: $pkg"
+
+        if ! apt-get install -y "$pkg"; then
+            echo "$pkg" >> "$fail_log"
+            echo "FAILED: $pkg"
+        fi
+    done
 }
 
 install_from_file "packages_install.txt"
