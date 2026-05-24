@@ -4,7 +4,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 # ========= CONFIG =========
-newUser="USERNAME"
+newUser="${1:-USERNAME}"
 debs_url="http://git.indevlin.com/res/debs"
 
 # detect chassis type
@@ -15,30 +15,7 @@ apt-get update
 apt-get upgrade -y
 
 # ========= INSTALL REPO PACKAGES =========
-install_from_file() {
-    local file="$1"
-    local fail_log="./install_fails.txt"
-
-    [[ -f "$file" ]] || return 0
-
-    mapfile -t pkgs < <(grep -vE '^\s*#|^\s*$' "$file")
-
-    (( ${#pkgs[@]} > 0 )) || return 0
-
-    : > "$fail_log"
-
-    local pkg
-    for pkg in "${pkgs[@]}"; do
-        echo "Installing: $pkg"
-
-        if ! apt-get install -y "$pkg"; then
-            echo "$pkg" >> "$fail_log"
-            echo "FAILED: $pkg"
-        fi
-    done
-}
-
-install_from_file "packages_install.txt"
+while read -r pkg; do sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" || echo "$pkg" >> install_fails.txt; done < ./packages_install.txt
 
 # ========= THINKPAD-SPECIFIC PACKAGES =========
 # Only apply if chassis looks like a laptop and vendor hints ThinkPad
@@ -50,22 +27,17 @@ fi
 # ========= LOCAL DEB INSTALL (ROBUST) =========
 tmp_dir=$(mktemp -d)
 
-if [[ -f "debs.txt" ]]; then
-    mapfile -t debs < <(grep -vE '^\s*#|^\s*$' debs.txt)
+if [[ -f debs.txt ]]; then
+    while read -r line; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
 
-    for line in "${debs[@]}"; do
         file_url="${debs_url}/${line}"
         out_file="$tmp_dir/$(basename "$line")"
 
-        if ! wget -q "$file_url" -O "$out_file"; then
-            echo "Download failed: $file_url" >&2
-        fi
-    done
+        wget -q "$file_url" -O "$out_file" || echo "Download failed: $file_url" >&2
+    done < debs.txt
 
-    # install all at once (dependency-aware)
-    if compgen -G "$tmp_dir/*.deb" > /dev/null; then
-        dpkg -i "$tmp_dir"/*.deb
-    fi
+    dpkg -i "$tmp_dir"/*.deb 2>/dev/null
 fi
 
 rm -rf "$tmp_dir"
@@ -80,14 +52,9 @@ apt-get dist-upgrade -y
 # ========= REMOVE UNWANTED PACKAGES =========
 remove_from_file() {
     local file="$1"
-
     [[ -f "$file" ]] || return 0
 
-    mapfile -t pkgs < <(grep -vE '^\s*#|^\s*$' "$file")
-
-    if (( ${#pkgs[@]} > 0 )); then
-        apt-get purge -y "${pkgs[@]}"
-    fi
+    grep -vE '^\s*#|^\s*$' "$file" | xargs -r apt-get purge -y
 }
 
 remove_from_file "packages_remove.txt"
