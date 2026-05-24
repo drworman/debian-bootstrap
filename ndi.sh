@@ -64,7 +64,7 @@ if [[ -f "debs.txt" ]]; then
 
     # install all at once (dependency-aware)
     if compgen -G "$tmp_dir/*.deb" > /dev/null; then
-        apt-get install -y "$tmp_dir"/*.deb
+        dpkg -i "$tmp_dir"/*.deb
     fi
 fi
 
