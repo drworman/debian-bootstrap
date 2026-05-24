@@ -1,8 +1,8 @@
-obsidian-amd64.deb
 discord-amd64.deb
-projectlibre-amd64.deb
 gh-amd64.deb
-qownnotes-amd64.deb
 google-chrome-stable_current_amd64.deb
-steam-launcher_latest_amd64.deb
 marktext-amd64.deb
+obsidian-amd64.deb
+projectlibre-amd64.deb
+qownnotes-amd64.deb
+steam-launcher_latest_amd64.deb
